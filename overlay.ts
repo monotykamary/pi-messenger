@@ -67,8 +67,6 @@ export class MessengerOverlay implements Component, Focusable {
   private wasPlanning: boolean;
   private prevInProgressCount = 0;
   private isHidden = false;
-  private isRendering = false;
-  private pendingRender = false;
 
   constructor(
     private tui: TUI,
@@ -553,16 +551,6 @@ export class MessengerOverlay implements Component, Focusable {
   }
 
   render(_width: number): string[] {
-    // Prevent concurrent renders - queue if already rendering
-    if (this.isRendering) {
-      this.pendingRender = true;
-      return [];
-    }
-    this.isRendering = true;
-
-    // Clear screen at start of render to prevent stacking
-    process.stdout.write('\x1b[2J\x1b[H');
-
     const w = this.width;
     const innerW = w - 2;
     const sectionW = innerW - 2;
@@ -707,14 +695,6 @@ export class MessengerOverlay implements Component, Focusable {
 
     if (allEvents.length > 0) {
       this.crewViewState.lastSeenEventTs = allEvents[allEvents.length - 1].ts;
-    }
-
-    // Release render lock and trigger pending render if queued
-    this.isRendering = false;
-    if (this.pendingRender) {
-      this.pendingRender = false;
-      // Use setImmediate to avoid stack overflow and allow current render to complete
-      setImmediate(() => this.tui.requestRender());
     }
 
     return lines;
