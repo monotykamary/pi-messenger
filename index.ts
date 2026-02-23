@@ -68,6 +68,7 @@ import { shutdownLobbyWorkers } from "./crew/lobby.js";
 
 let overlayTui: TUI | null = null;
 let overlayHandle: OverlayHandle | null = null;
+let overlayInstance: MessengerOverlay | null = null;
 let overlayOpening = false;
 
 export default function piMessengerExtension(pi: ExtensionAPI) {
@@ -484,6 +485,8 @@ Usage (action-based API - preferred):
 
       if (overlayHandle && overlayHandle.isHidden()) {
         overlayHandle.setHidden(false);
+        // Notify overlay to resume timers
+        overlayInstance?.onShow();
         clearAllUnreadCounts();
         updateStatus(ctx);
         return;
@@ -492,6 +495,8 @@ Usage (action-based API - preferred):
       const callbacks: OverlayCallbacks = {
         onBackground: (snapshotText) => {
           overlayHandle?.setHidden(true);
+          // Notify overlay to pause timers
+          overlayInstance?.onHide();
           pi.sendMessage({
             customType: "crew_snapshot",
             content: snapshotText,
@@ -503,7 +508,8 @@ Usage (action-based API - preferred):
       const snapshot = await ctx.ui.custom<string | undefined>(
         (tui, theme, _keybindings, done) => {
           overlayTui = tui;
-          return new MessengerOverlay(tui, theme, state, dirs, done, callbacks);
+          overlayInstance = new MessengerOverlay(tui, theme, state, dirs, done, callbacks);
+          return overlayInstance;
         },
         {
           overlay: true,
@@ -524,6 +530,7 @@ Usage (action-based API - preferred):
       // Overlay closed
       clearAllUnreadCounts();
       overlayHandle = null;
+      overlayInstance = null;
       overlayTui = null;
       updateStatus(ctx);
     }
@@ -823,6 +830,8 @@ Usage (action-based API - preferred):
     const callbacks: OverlayCallbacks = {
       onBackground: (snapshotText) => {
         overlayHandle?.setHidden(true);
+        // Notify overlay to pause timers
+        overlayInstance?.onHide();
         pi.sendMessage({
           customType: "crew_snapshot",
           content: snapshotText,
@@ -834,7 +843,8 @@ Usage (action-based API - preferred):
     ctx.ui.custom<string | undefined>(
       (tui, theme, _keybindings, done) => {
         overlayTui = tui;
-        return new MessengerOverlay(tui, theme, state, dirs, done, callbacks);
+        overlayInstance = new MessengerOverlay(tui, theme, state, dirs, done, callbacks);
+        return overlayInstance;
       },
       {
         overlay: true,
@@ -856,11 +866,13 @@ Usage (action-based API - preferred):
       clearAllUnreadCounts();
       overlayOpening = false;
       overlayHandle = null;
+      overlayInstance = null;
       overlayTui = null;
       updateStatus(ctx);
     }).catch(() => {
       overlayOpening = false;
       overlayHandle = null;
+      overlayInstance = null;
       overlayTui = null;
       if (config.autoOverlayPlanning) {
         markPlanningOverlayPending(cwd);
@@ -1010,6 +1022,7 @@ Usage (action-based API - preferred):
     stopStatusHeartbeat();
     overlayOpening = false;
     overlayHandle = null;
+    overlayInstance = null;
     overlayTui = null;
     if (isPlanningForCwd(process.cwd()) && planningState.pid === process.pid) {
       clearPlanningState(process.cwd());

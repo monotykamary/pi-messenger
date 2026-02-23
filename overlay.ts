@@ -66,6 +66,9 @@ export class MessengerOverlay implements Component, Focusable {
   private completionDismissed = false;
   private wasPlanning: boolean;
   private prevInProgressCount = 0;
+  private isHidden = false;
+  private isRendering = false;
+  private pendingRender = false;
 
   constructor(
     private tui: TUI,
@@ -173,6 +176,8 @@ export class MessengerOverlay implements Component, Focusable {
   }
 
   private syncCrewRefreshTimers(): void {
+    if (this.isHidden) return;
+
     if (hasLiveWorkers(this.cwd)) this.startProgressRefresh();
     else this.stopProgressRefresh();
 
@@ -548,6 +553,16 @@ export class MessengerOverlay implements Component, Focusable {
   }
 
   render(_width: number): string[] {
+    // Prevent concurrent renders - queue if already rendering
+    if (this.isRendering) {
+      this.pendingRender = true;
+      return [];
+    }
+    this.isRendering = true;
+
+    // Clear screen at start of render to prevent stacking
+    process.stdout.write('\x1b[2J\x1b[H');
+
     const w = this.width;
     const innerW = w - 2;
     const sectionW = innerW - 2;
@@ -694,6 +709,14 @@ export class MessengerOverlay implements Component, Focusable {
       this.crewViewState.lastSeenEventTs = allEvents[allEvents.length - 1].ts;
     }
 
+    // Release render lock and trigger pending render if queued
+    this.isRendering = false;
+    if (this.pendingRender) {
+      this.pendingRender = false;
+      // Use setImmediate to avoid stack overflow and allow current render to complete
+      setImmediate(() => this.tui.requestRender());
+    }
+
     return lines;
   }
 
@@ -786,5 +809,28 @@ export class MessengerOverlay implements Component, Focusable {
     }
     this.progressUnsubscribe?.();
     this.progressUnsubscribe = null;
+  }
+
+  /**
+   * Called when the overlay is hidden (background mode).
+   * Stops refresh timers to prevent rendering issues.
+   */
+  onHide(): void {
+    this.isHidden = true;
+    this.stopProgressRefresh();
+    this.stopPlanningRefresh();
+  }
+
+  /**
+   * Called when the overlay is shown again after being hidden.
+   * Restarts refresh timers if needed.
+   */
+  onShow(): void {
+    this.isHidden = false;
+    this.syncCrewRefreshTimers();
+    // Clear terminal to prevent background bleeding from main UI
+    // ESC[2J clears screen, ESC[H moves cursor to home position
+    process.stdout.write('\x1b[2J\x1b[H');
+    this.tui.requestRender();
   }
 }
