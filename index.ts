@@ -400,7 +400,7 @@ export default function piMessengerExtension(pi: ExtensionAPI) {
     maybeAutoOpenSwarmOverlay(ctx);
   });
 
-  pi.on('agent_end', async (_event, ctx) => {
+  pi.on('agent_settled', async (_event, ctx) => {
     latestCtx = ctx;
     updateStatus(ctx);
   });
