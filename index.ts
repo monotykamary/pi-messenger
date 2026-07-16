@@ -170,6 +170,13 @@ export default function piMessengerExtension(pi: ExtensionAPI) {
     description: "Open messenger overlay, or 'config' to manage settings",
     handler: async (args, ctx) => {
       if (!ctx.hasUI) return;
+      if (ctx.mode !== 'tui') {
+        ctx.ui.notify(
+          '/messenger overlay requires TUI mode (terminal). The chat and config overlays are terminal-only.',
+          'info'
+        );
+        return;
+      }
       latestCtx = ctx;
       syncContextSession(ctx);
 
