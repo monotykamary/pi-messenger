@@ -326,4 +326,50 @@ describe('overlay layout', () => {
       restoreTerminal();
     }
   });
+
+  it('bounds the main overlay to the supplied narrow width', async () => {
+    const cwd = createTempCwd();
+    const dirs = makeDirs(cwd);
+    const state = makeState();
+    const previousCwd = process.cwd();
+    process.chdir(cwd);
+
+    try {
+      const { MessengerOverlay } = await import('../overlay/component.js');
+      const overlay = new MessengerOverlay(
+        { requestRender: () => {} } as any,
+        theme as any,
+        state,
+        dirs,
+        () => {},
+        {}
+      );
+      const width = 20;
+      const frame = overlay.render(width);
+      expect(frame.every((line) => line.length <= width)).toBe(true);
+      overlay.dispose();
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
+  it('bounds the config overlay to the supplied narrow width', async () => {
+    const cwd = createTempCwd();
+    const previousCwd = process.cwd();
+    process.chdir(cwd);
+
+    try {
+      const { MessengerConfigOverlay } = await import('../overlay/config-overlay.js');
+      const overlay = new MessengerConfigOverlay(
+        { requestRender: () => {} } as any,
+        theme as any,
+        () => {}
+      );
+      const width = 20;
+      const frame = overlay.render(width);
+      expect(frame.every((line) => line.length <= width)).toBe(true);
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
 });

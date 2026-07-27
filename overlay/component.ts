@@ -98,6 +98,7 @@ export class MessengerOverlay implements Component, Focusable {
   private discoveredChannelsCache: { channels: string[]; expiresAt: number } | null = null;
   private autoSwitchedToChannel = new Set<string>();
   private lastRenderedChannel: string | null = null;
+  private renderedWidth = 90;
 
   constructor(
     private tui: TUI,
@@ -383,7 +384,7 @@ export class MessengerOverlay implements Component, Focusable {
   handleInput(data: string): void {
     handleOverlayInput({
       data,
-      width: this.width,
+      width: this.renderedWidth,
       viewState: this.viewState,
       cwd: this.cwd,
       state: this.state,
@@ -408,7 +409,7 @@ export class MessengerOverlay implements Component, Focusable {
     return generateSwarmSnapshot(this.cwd, this.currentChannel(), this.state);
   }
 
-  render(_width: number): string[] {
+  render(width: number): string[] {
     // Sync channel state from disk so CLI changes (join, switch)
     // are visible without restarting the session.
     syncChannelStateFromDisk(this.state, this.dirs);
@@ -432,7 +433,8 @@ export class MessengerOverlay implements Component, Focusable {
     }
     this.lastRenderedChannel = currentCh;
 
-    const w = this.width;
+    const w = Math.max(4, width);
+    this.renderedWidth = w;
     const innerW = w - 2;
     const sectionW = innerW - 2;
     const border = (s: string) => this.theme.fg('dim', s);
@@ -582,8 +584,8 @@ export class MessengerOverlay implements Component, Focusable {
     const titleContent = this.renderTitleContent();
     const chromeKey = `${innerW}|${titleContent}`;
     if (!this.chromeCache || this.chromeCache.key !== chromeKey) {
-      const titleText = ` ${titleContent} `;
-      const titleLen = visibleWidth(titleContent) + 2;
+      const titleText = truncateToWidth(` ${titleContent} `, innerW, '');
+      const titleLen = visibleWidth(titleText);
       const borderLen = Math.max(0, innerW - titleLen);
       const leftBorder = Math.floor(borderLen / 2);
       const rightBorder = borderLen - leftBorder;
@@ -729,7 +731,7 @@ export class MessengerOverlay implements Component, Focusable {
       lines,
     };
 
-    return lines;
+    return lines.map((line) => truncateToWidth(line, width, ''));
   }
 
   private detectAndFlashEvents(events: FeedEvent[], prevTs: string | null): void {

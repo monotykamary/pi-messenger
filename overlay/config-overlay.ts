@@ -84,21 +84,25 @@ export class MessengerConfigOverlay implements Component, Focusable {
     this.statusMessage = `Removed: ${removed.split('/').pop()}`;
   }
 
-  render(_width: number): string[] {
-    const w = this.width;
+  render(width: number): string[] {
+    const w = Math.max(4, width);
     const innerW = w - 2;
+    const contentW = Math.max(0, innerW - 2);
     const lines: string[] = [];
     const cwd = process.cwd();
     const isCurrentInList = matchesAutoRegisterPath(cwd, this.paths);
 
     const border = (s: string) => this.theme.fg('dim', s);
     const pad = (s: string, len: number) => s + ' '.repeat(Math.max(0, len - visibleWidth(s)));
-    const row = (content: string) => border('│') + pad(' ' + content, innerW) + border('│');
+    const row = (content: string) => {
+      const safe = truncateToWidth(content, contentW, '');
+      return border('│') + pad(` ${safe} `, innerW) + border('│');
+    };
     const emptyRow = () => border('│') + ' '.repeat(innerW) + border('│');
 
     // Top border with title
-    const titleText = ' Messenger Config ';
-    const borderLen = innerW - titleText.length;
+    const titleText = truncateToWidth(' Messenger Config ', innerW, '');
+    const borderLen = innerW - visibleWidth(titleText);
     const leftBorder = Math.floor(borderLen / 2);
     const rightBorder = borderLen - leftBorder;
     lines.push(
@@ -110,7 +114,7 @@ export class MessengerConfigOverlay implements Component, Focusable {
     lines.push(emptyRow());
 
     // Current folder status
-    const cwdDisplay = truncateToWidth(cwd, Math.max(10, innerW - 20));
+    const cwdDisplay = truncateToWidth(cwd, Math.max(0, contentW - 16), '');
     lines.push(row(`Current folder: ${cwdDisplay}`));
     const statusColor = isCurrentInList ? 'accent' : 'dim';
     lines.push(row(`Auto-register: ${this.theme.fg(statusColor, isCurrentInList ? 'YES' : 'NO')}`));
@@ -134,7 +138,7 @@ export class MessengerConfigOverlay implements Component, Focusable {
 
         const marker = isSelected ? this.theme.fg('accent', '▸') : ' ';
         const suffix = isCurrent ? this.theme.fg('dim', ' (current)') : '';
-        const pathDisplay = truncateToWidth(path, Math.max(10, innerW - 15));
+        const pathDisplay = truncateToWidth(path, Math.max(0, contentW - 12), '');
 
         if (isSelected) {
           lines.push(row(`${marker} ${this.theme.fg('accent', pathDisplay)}${suffix}`));
@@ -165,7 +169,7 @@ export class MessengerConfigOverlay implements Component, Focusable {
     // Bottom border
     lines.push(border('╰' + '─'.repeat(innerW) + '╯'));
 
-    return lines;
+    return lines.map((line) => truncateToWidth(line, width, ''));
   }
 
   invalidate(): void {
